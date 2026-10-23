@@ -1,0 +1,10 @@
+# Bỏ qua dữ liệu của Database và Storage
+mysql_data/
+postgres_data/
+minio_data/
+
+# Bỏ qua file môi trường và cache
+.env
+__pycache__/
+*.pyc
+.DS_Store
