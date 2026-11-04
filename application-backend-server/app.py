@@ -1,4 +1,4 @@
-import json
+﻿import json
 import os
 import time
 
@@ -12,7 +12,7 @@ app = Flask(__name__)
 # ---------- Cau hinh Keycloak (giu nguyen tu de bai) ----------
 ISSUER = os.getenv("OIDC_ISSUER", "http://authentication-identity-server:8080/realms/master")
 AUDIENCE = os.getenv("OIDC_AUDIENCE", "myapp")
-JWKS_URL = f"{ISSUER}/protocol/openid-connect/certs"
+JWKS_URL = os.getenv("OIDC_JWKS_URL",f"{ISSUER}/protocol/openid-connect/certs")
 _JWKS = None
 _TS = 0
 
