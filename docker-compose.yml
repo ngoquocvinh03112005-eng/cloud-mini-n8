@@ -16,7 +16,8 @@ services:
     networks: [cloud-net]
     ports: [ "8085:8081" ]
     environment:
-      OIDC_ISSUER:   "http://authentication-identity-server:8080/realms/master"
+      OIDC_ISSUER:   "http://localhost:8081/realms/minicloudn8"
+      OIDC_JWKS_URL: "http://authentication-identity-server:8080/realms/minicloudn8/protocol/openid-connect/certs"
       OIDC_AUDIENCE: "myapp"
       DB_HOST: "relational-database-server"
       DB_USER: "root"

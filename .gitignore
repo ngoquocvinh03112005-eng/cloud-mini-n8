@@ -8,3 +8,6 @@ minio_data/
 __pycache__/
 *.pyc
 .DS_Store
+
+# Bỏ qua dữ liệu runtime của MinIO
+object-storage-server/data/
