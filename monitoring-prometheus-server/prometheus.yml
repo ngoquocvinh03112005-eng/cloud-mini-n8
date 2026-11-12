@@ -1,4 +1,4 @@
-﻿global:
+global:
   scrape_interval: 15s
 
 scrape_configs:
@@ -6,7 +6,6 @@ scrape_configs:
     static_configs:
       - targets: ["monitoring-node-exporter-server:9100"]
 
-  # Thêm đoạn này cho Mục 7
-  - job_name: "web"
+  - job_name: "web-frontend-server"
     static_configs:
-      - targets: ["web-frontend-server:80"]
+      - targets: ["monitoring-nginx-exporter-server:9113"]

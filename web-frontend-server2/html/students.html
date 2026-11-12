@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quản lý sinh viên | MiniCloud</title>
+<style>
+:root {
+  --green: #079b43;
+  --green-dark: #067a36;
+  --bg: #f4f7f5;
+  --border: #e5eae7;
+  --text: #24332a;
+  --muted: #718078;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 32px 18px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Arial, sans-serif;
+}
+.container { max-width: 1100px; margin: auto; }
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+h1 { margin: 0 0 8px; font-size: 27px; }
+.subtitle { color: var(--muted); font-size: 14px; }
+button, input {
+  font: inherit;
+}
+button {
+  border: 0;
+  border-radius: 7px;
+  padding: 10px 15px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.primary { background: var(--green); color: white; }
+.primary:hover { background: var(--green-dark); }
+.secondary { background: #edf2ee; color: #34463a; }
+.edit { background: #e8f1ff; color: #225bb0; padding: 7px 10px; }
+.delete { background: #fff0f0; color: #c33737; padding: 7px 10px; }
+.panel {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 3px 12px rgba(20,50,30,.04);
+}
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.search {
+  width: min(360px, 100%);
+  padding: 11px 13px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  outline-color: var(--green);
+}
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 680px; }
+th {
+  background: var(--green);
+  color: white;
+  text-align: left;
+  padding: 13px 12px;
+  font-size: 14px;
+}
+td {
+  padding: 13px 12px;
+  border-bottom: 1px solid #edf0ee;
+  font-size: 14px;
+}
+tbody tr:nth-child(even) { background: #f8faf9; }
+tbody tr:hover { background: #f0f8f2; }
+.actions { display: flex; gap: 7px; }
+.status { margin-top: 15px; color: var(--muted); font-size: 13px; }
+.message { margin: 12px 0; font-size: 14px; }
+.message.error { color: #c33737; }
+.message.success { color: var(--green-dark); }
+.modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background: rgba(0,0,0,.42);
+  padding: 18px;
+  align-items: center;
+  justify-content: center;
+}
+.modal.show { display: flex; }
+.dialog {
+  width: min(460px, 100%);
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.18);
+}
+.dialog h2 { margin: 0 0 20px; }
+.field { margin-bottom: 14px; }
+.field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 7px;
+}
+.field input {
+  width: 100%;
+  padding: 11px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 20px;
+}
+.empty { text-align: center; color: var(--muted); padding: 28px; }
+@media (max-width: 600px) {
+  body { padding: 20px 10px; }
+  .panel { padding: 13px; }
+  h1 { font-size: 22px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div>
+      <h1>Quản lý sinh viên</h1>
+      <div class="subtitle">MiniCloud · Dữ liệu được lưu trữ trên MariaDB</div>
+    </div>
+    <button class="primary" onclick="openAddForm()">+ Thêm sinh viên</button>
+  </header>
+
+  <section class="panel">
+    <div class="toolbar">
+      <strong>Danh sách sinh viên</strong>
+      <input id="search" class="search"
+        placeholder="Tìm theo mã sinh viên hoặc họ tên..."
+        oninput="renderTable()">
+    </div>
+
+    <div id="message" class="message"></div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Student ID</th>
+            <th>Fullname</th>
+            <th>DOB</th>
+            <th>Major</th>
+            <th>Thao tác</th>
+          </tr>
+        </thead>
+        <tbody id="studentRows">
+          <tr><td colspan="6" class="empty">Đang tải dữ liệu...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="status" id="status">Đang kết nối đến MariaDB...</div>
+  </section>
+</div>
+
+<div class="modal" id="studentModal">
+  <div class="dialog">
+    <h2 id="formTitle">Thêm sinh viên</h2>
+    <form id="studentForm">
+      <div class="field">
+        <label for="studentId">Student ID</label>
+        <input id="studentId" required maxlength="30" placeholder="Ví dụ: SV004">
+      </div>
+      <div class="field">
+        <label for="fullname">Fullname</label>
+        <input id="fullname" required maxlength="150" placeholder="Họ và tên">
+      </div>
+      <div class="field">
+        <label for="dob">Date of Birth</label>
+        <input id="dob" type="date" required>
+      </div>
+      <div class="field">
+        <label for="major">Major</label>
+        <input id="major" required maxlength="150" placeholder="Ngành học">
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="secondary" onclick="closeForm()">Hủy</button>
+        <button type="submit" class="primary" id="saveButton">Lưu thông tin</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const API = "/api/students-db";
+let students = [];
+let editingId = null;
+
+const rows = document.getElementById("studentRows");
+const message = document.getElementById("message");
+const statusText = document.getElementById("status");
+const modal = document.getElementById("studentModal");
+
+function showMessage(text, type = "success") {
+  message.textContent = text;
+  message.className = "message " + type;
+}
+
+async function apiRequest(url, options = {}) {
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {})
+    }
+  });
+
+  const text = await response.text();
+  let data = {};
+  try { data = text ? JSON.parse(text) : {}; }
+  catch { data = { error: text }; }
+
+  if (!response.ok) {
+    throw new Error(data.error || data.message || `HTTP ${response.status}`);
+  }
+  return data;
+}
+
+async function loadStudents() {
+  rows.innerHTML = '<tr><td colspan="6" class="empty">Đang tải...</td></tr>';
+  try {
+    const data = await apiRequest(API);
+    students = Array.isArray(data) ? data : [];
+    renderTable();
+    statusText.textContent = `Đã tải ${students.length} sinh viên từ MariaDB`;
+  } catch (error) {
+    students = [];
+    renderTable();
+    statusText.textContent = "Không thể tải dữ liệu.";
+    showMessage("Lỗi kết nối: " + error.message, "error");
+  }
+}
+
+function renderTable() {
+  const keyword = document.getElementById("search").value.trim().toLowerCase();
+  const filtered = students.filter(s =>
+    String(s.student_id || "").toLowerCase().includes(keyword) ||
+    String(s.fullname || "").toLowerCase().includes(keyword)
+  );
+
+  if (!filtered.length) {
+    rows.innerHTML = '<tr><td colspan="6" class="empty">Không tìm thấy sinh viên.</td></tr>';
+    return;
+  }
+
+  rows.innerHTML = filtered.map((s, index) => `
+    <tr>
+      <td>${index + 1}</td>
+      <td>${escapeHTML(s.student_id)}</td>
+      <td>${escapeHTML(s.fullname)}</td>
+      <td>${escapeHTML(s.dob)}</td>
+      <td>${escapeHTML(s.major)}</td>
+      <td>
+        <div class="actions">
+          <button class="edit" onclick="openEditForm(${Number(s.id)})">Sửa</button>
+          <button class="delete" onclick="deleteStudent(${Number(s.id)})">Xóa</button>
+        </div>
+      </td>
+    </tr>
+  `).join("");
+}
+
+function escapeHTML(value) {
+  return String(value ?? "").replace(/[&<>"']/g, char => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;",
+    '"': "&quot;", "'": "&#39;"
+  })[char]);
+}
+
+function openAddForm() {
+  editingId = null;
+  document.getElementById("studentForm").reset();
+  document.getElementById("formTitle").textContent = "Thêm sinh viên";
+  document.getElementById("saveButton").textContent = "Thêm mới";
+  modal.classList.add("show");
+}
+
+function openEditForm(id) {
+  const s = students.find(item => Number(item.id) === id);
+  if (!s) return;
+
+  editingId = id;
+  document.getElementById("studentId").value = s.student_id || "";
+  document.getElementById("fullname").value = s.fullname || "";
+  document.getElementById("dob").value = String(s.dob || "").slice(0, 10);
+  document.getElementById("major").value = s.major || "";
+  document.getElementById("formTitle").textContent = "Cập nhật sinh viên";
+  document.getElementById("saveButton").textContent = "Lưu thay đổi";
+  modal.classList.add("show");
+}
+
+function closeForm() {
+  modal.classList.remove("show");
+}
+
+document.getElementById("studentForm").addEventListener("submit", async event => {
+  event.preventDefault();
+
+  const data = {
+    student_id: document.getElementById("studentId").value.trim(),
+    fullname: document.getElementById("fullname").value.trim(),
+    dob: document.getElementById("dob").value,
+    major: document.getElementById("major").value.trim()
+  };
+
+  if (!data.student_id || !data.fullname || !data.dob || !data.major) {
+    showMessage("Vui lòng nhập đầy đủ thông tin.", "error");
+    return;
+  }
+
+  const button = document.getElementById("saveButton");
+  button.disabled = true;
+
+  try {
+    if (editingId === null) {
+      await apiRequest(API, {
+        method: "POST",
+        body: JSON.stringify(data)
+      });
+      showMessage("Đã thêm sinh viên thành công.");
+    } else {
+      await apiRequest(`${API}/${editingId}`, {
+        method: "PUT",
+        body: JSON.stringify(data)
+      });
+      showMessage("Đã cập nhật sinh viên thành công.");
+    }
+
+    closeForm();
+    await loadStudents();
+  } catch (error) {
+    showMessage("Không thể lưu: " + error.message, "error");
+  } finally {
+    button.disabled = false;
+  }
+});
+
+async function deleteStudent(id) {
+  const s = students.find(item => Number(item.id) === id);
+  if (!s) return;
+
+  if (!confirm(`Bạn có chắc muốn xóa sinh viên ${s.fullname} (${s.student_id})?`)) {
+    return;
+  }
+
+  try {
+    await apiRequest(`${API}/${id}`, { method: "DELETE" });
+    showMessage("Đã xóa sinh viên thành công.");
+    await loadStudents();
+  } catch (error) {
+    showMessage("Không thể xóa: " + error.message, "error");
+  }
+}
+
+loadStudents();
+</script>
+</body>
+</html>

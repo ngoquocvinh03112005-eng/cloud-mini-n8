@@ -2,8 +2,15 @@ server {
     listen 80;
     server_name _;
 
-    REDACTED_OLD_CREDENTIAL /usr/share/nginx/html;
+    root /usr/share/nginx/html;
     index index.html;
+
+    location = /nginx_status {
+        stub_status;
+        access_log off;
+        allow 172.18.0.0/16;
+        deny all;
+    }
 
     location / {
         try_files $uri $uri/ =404;

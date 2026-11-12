@@ -1,13 +1,17 @@
-﻿networks: { cloud-net: { name: cloud-net } }
+﻿name: cloud-mini-n8
+networks: { cloud-net: { name: cloud-net } }
 volumes:
   db_data:
+  prometheus_data:
 services:
   web-frontend-server:
-    build: ./web-frontend-server
-    image: nhom8/web:dev
+    build:
+      context: ./web-frontend-server
+    image: ngoquocvinhcute/web:dev
     container_name: web-frontend-server
     networks: [cloud-net]
     ports: [ "8080:80" ]
+    restart: unless-stopped
   web-frontend-server2:
     image: nginx:stable
     container_name: web-frontend-server2
@@ -17,18 +21,19 @@ services:
       - ./web-frontend-server2/html:/usr/share/nginx/html:ro
     restart: unless-stopped
   application-backend-server:
-    build: ./application-backend-server
-    image: nhom8/app:dev
+    build:
+      context: ./application-backend-server
+    image: ngoquocvinhcute/app:dev
     container_name: application-backend-server
     networks: [cloud-net]
     ports: [ "8085:8081" ]
     environment:
-      OIDC_ISSUER:   "http://localhost:8081/realms/minicloudn8"
-      OIDC_JWKS_URL: "http://authentication-identity-server:8080/realms/minicloudn8/protocol/openid-connect/certs"
-      OIDC_AUDIENCE: "myapp"
+      OIDC_ISSUER: "${PUBLIC_BASE_URL:?Set PUBLIC_BASE_URL in .env}/realms/52300085"
+      OIDC_JWKS_URL: "http://authentication-identity-server:8080/realms/52300085/protocol/openid-connect/certs"
+      OIDC_AUDIENCE: "flask-app"
       DB_HOST: "relational-database-server"
-      DB_USER: "REDACTED_OLD_CREDENTIAL"
-      DB_PASSWORD: "REDACTED_OLD_CREDENTIAL"
+      DB_USER: "root"
+      DB_PASSWORD: "${DB_PASSWORD:?Set DB_PASSWORD in .env}"
       DB_NAME: "studentdb"
     depends_on:
       - relational-database-server
@@ -37,7 +42,7 @@ services:
     image: mariadb:11
     container_name: relational-database-server
     environment:
-      MARIADB_ROOT_PASSWORD: REDACTED_OLD_CREDENTIAL
+      MARIADB_ROOT_PASSWORD: "${MARIADB_ROOT_PASSWORD:?Set MARIADB_ROOT_PASSWORD in .env}"
       MARIADB_DATABASE: minicloud
     volumes:
       - ./relational-database-server/init:/docker-entrypoint-initdb.d:ro
@@ -50,12 +55,14 @@ services:
     container_name: authentication-identity-server
     command: ["start-dev"]
     environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: REDACTED_OLD_CREDENTIAL
-      KC_BOOTSTRAP_ADMIN_PASSWORD: REDACTED_OLD_CREDENTIAL
-      KC_HOSTNAME: "localhost"
+      KC_BOOTSTRAP_ADMIN_USERNAME: "${KC_BOOTSTRAP_ADMIN_USERNAME:?Set KC_BOOTSTRAP_ADMIN_USERNAME in .env}"
+      KC_BOOTSTRAP_ADMIN_PASSWORD: "${KC_BOOTSTRAP_ADMIN_PASSWORD:?Set KC_BOOTSTRAP_ADMIN_PASSWORD in .env}"
+      KC_HOSTNAME: "${PUBLIC_BASE_URL:?Set PUBLIC_BASE_URL in .env}"
       KC_HOSTNAME_STRICT: "false"
       KC_HTTP_ENABLED: "true"
     ports: [ "8081:8080" ]
+    volumes:
+      - ./keycloak-data:/opt/keycloak/data
     restart: unless-stopped
     networks: [cloud-net]
   object-storage-server:
@@ -63,8 +70,8 @@ services:
     container_name: object-storage-server
     command: ["server","/data","--console-address",":9001"]
     environment:
-      MINIO_ROOT_USER: REDACTED_OLD_CREDENTIAL
-      MINIO_ROOT_PASSWORD: REDACTED_OLD_CREDENTIAL
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in .env}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}"
     volumes:
       - ./object-storage-server/data:/data
     ports: [ "9000:9000", "9001:9001" ]
@@ -93,14 +100,30 @@ services:
     ports: [ "9090:9090" ]
     volumes:
       - ./monitoring-prometheus-server/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
     networks: [cloud-net]
     restart: unless-stopped
+  monitoring-nginx-exporter-server:
+    image: nginx/nginx-prometheus-exporter:1.4.2
+    container_name: monitoring-nginx-exporter-server
+    command:
+      - --nginx.scrape-uri=http://web-frontend-server:80/nginx_status
+    networks: [cloud-net]
+    depends_on:
+      - web-frontend-server
+    restart: unless-stopped
+
   monitoring-grafana-dashboard-server:
     image: grafana/grafana:latest
     container_name: monitoring-grafana-dashboard-server
     ports: [ "3000:3000" ]
+    volumes:
+      - ./grafana-data:/var/lib/grafana
+      - ./grafana-provisioning/dashboards/provider.yaml:/etc/grafana/provisioning/dashboards/minicloud.yaml:ro
+      - ./grafana-provisioning/dashboards:/var/lib/grafana/dashboards:ro
     networks: [cloud-net]
     restart: unless-stopped
+      - ./grafana-provisioning/datasources:/etc/grafana/provisioning/datasources:ro
   api-gateway-proxy-server:
     image: nginx:stable
     container_name: api-gateway-proxy-server
